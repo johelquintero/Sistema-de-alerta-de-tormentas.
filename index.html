@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Integrado de Monitoreo Meteorol&oacute;gico - Venezuela</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="header">
+        <h1>🌩️ Sistema Integrado de Monitoreo Meteorol&oacute;gico - Venezuela 🇻🇪</h1>
+        <div class="subtitle">Rayos • Radar • Sat&eacute;lite • Alertas en Tiempo Real | Open-Meteo + RainViewer</div>
+    </div>
+
+    <div class="main-container">
+        <div id="map"></div>
+        
+        <div class="sidebar">
+            <!-- Panel de Control de Capas -->
+            <div class="control-panel">
+                <h3>📡 Capas de Datos</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" data-layer="lightning">⚡ Rayos</button>
+                    <button class="toggle-btn active" data-layer="radar">🌧️ Radar</button>
+                    <button class="toggle-btn active" data-layer="satellite">🛰️ Sat&eacute;lite</button>
+                    <button class="toggle-btn active" data-layer="alerts">🚨 Alertas</button>
+                    <button class="toggle-btn active" data-layer="storms">🌪️ Tormentas</button>
+                    <button class="toggle-btn" data-layer="vigilance">⏳ Vigilancias</button>
+                </div>
+                
+                <h3>🎛️ Controles del Sistema</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn" onclick="updateAllData()">🔄 Actualizar Todo</button>
+                    <button class="toggle-btn" onclick="toggleAutoUpdate()" id="auto-btn">⏰ Auto: OFF</button>
+                    <button class="toggle-btn" onclick="showCalibration()">🛠️ Calibrar</button>
+                    <button class="toggle-btn" onclick="exportData()">💾 Exportar</button>
+                </div>
+            </div>
+
+            <!-- Panel de Controles de Audio -->
+            <div class="control-panel">
+                <h3>🔊 Controles de Audio</h3>
+                <div class="toggle-group" style="display: flex; align-items: center; gap: 10px;">
+                    <button id="sound-toggle" class="toggle-btn active" title="Activar/Desactivar Sonido">🔊</button>
+                    <select id="voice-select" style="flex-grow: 1; padding: 5px; border-radius: 4px; border: 1px solid #555; background-color: #333; color: white;"></select>
+                </div>
+            </div>
+
+            <!-- Panel de Estado del Sistema -->
+            <div class="status-panel">
+                <h3>📊 Estado del Sistema</h3>
+                <div class="status-item">
+                    <span>&Uacute;ltima Actualizaci&oacute;n:</span>
+                    <span class="status-value" id="last-update">Iniciando...</span>
+                </div>
+                <div class="status-item">
+                    <div id="status" style="width: 100%; text-align: left; line-height: 1.4;">Cargando datos de rayos...</div>
+                </div>
+                <div class="status-item">
+                    <span>Ciudades en Alerta:</span>
+                    <span class="status-value" id="alert-cities">0</span>
+                </div>
+                <div class="status-item">
+                    <span>Tormentas Activas:</span>
+                    <span class="status-value" id="active-storms">0</span>
+                </div>
+                <div class="status-item">
+                    <span>Estado APIs:</span>
+                    <span class="status-value" id="api-status">Conectando...</span>
+                </div>
+            </div>
+
+             <!-- Panel de Alertas Activas -->
+            <div class="control-panel">
+                <h3>🚨 Avisos y Alertas de Tormentas (Tiempo Real)🚨</h3>
+                <div id="alerts-container">
+                    <div class="no-alerts">🌤️ Sin alertas de tormentas</div>
+                </div>
+            </div>
+
+             <!-- Panel de Avisos por Estado (Slider) -->
+            <div class="control-panel slider-panel">
+                <h3 id="advisory-slider-header"> 🔔 Avisos de Mal Tiempo (7h)</h3>
+                <div id="advisory-slider-container">
+                    <div id="advisory-slide">
+                        <!-- El contenido se generará dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Vigilancias de Mal Tiempo -->
+            <div class="control-panel">
+                <h3>⏳ Vigilancias de Mal Tiempo (48h)🔔</h3>
+                <div id="vigilance-container">
+                    <div class="no-alerts">✅ Sin vigilancias activas.</div>
+                </div>
+            </div>
+           
+
+           
+
+            <!-- Panel de Estado de Ciudades -->
+            <div class="control-panel">
+                <h3>🏙️ Monitor de Ciudades</h3>
+                <div class="cities-panel" id="cities-container">
+                    <!-- Se llenar&aacute; din&aacute;micamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <!-- Loading Overlay -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Cargando datos meteorol&oacute;gicos de m&uacute;ltiples fuentes...</div>
+        <small style="opacity: 0.7;">Open-Meteo • RainViewer</small>
+    </div>
+
+    <!-- Panel de Calibraci&oacute;n (Funcionalidad Futura) -->
+    <div id="calibration-panel" class="calibration-panel">
+        <h3>🛠️ Calibraci&oacute;n de Coordenadas</h3>
+        <div class="calibration-input">
+            <label for="north-bound">Norte:</label>
+            <input type="number" id="north-bound" step="0.1">
+        </div>
+        <div class="calibration-input">
+            <label for="south-bound">Sur:</label>
+            <input type="number" id="south-bound" step="0.1">
+        </div>
+        <div class="calibration-input">
+            <label for="west-bound">Oeste:</label>
+            <input type="number" id="west-bound" step="0.1">
+        </div>
+        <div class="calibration-input">
+            <label for="east-bound">Este:</label>
+            <input type="number" id="east-bound" step="0.1">
+        </div>
+        <div class="calibration-buttons">
+            <button id="apply-calibration" class="btn-apply">Aplicar</button>
+            <button id="close-calibration" class="btn-close">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Leyenda del Mapa -->
+    <div class="legend">
+        <div class="legend-toggle" id="legend-toggle">Ocultar Leyenda</div>
+        <div id="legend-content">
+            <h4>📋 Leyenda</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffc107;"></div>
+                <span>Tormenta Débil (5-20 Rayos/5min)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fd7e14;"></div>
+                <span>Tormenta Moderada (21-70 Rayos/5min)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #dc3545;"></div>
+                <span>Tormenta Fuerte (71-200 Rayos/5min)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #E91E63;"></div>
+                <span>Tormenta Severa (>200 Rayos/5min)</span>
+            </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(253, 126, 20, 0.4); border: 2px dashed #fd7e14;"></div>
+            <span>Cono de Trayectoria (Moderada)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(220, 53, 69, 0.4); border: 2px dashed #dc3545;"></div>
+            <span>Cono de Trayectoria (Fuerte/Severa)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(255, 0, 0, 0.4); border-color: #ff0000;"></div>
+            <span>Vigilancia Alta</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(255, 165, 0, 0.4); border-color: #ffa500;"></div>
+            <span>Vigilancia Moderada</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(255, 255, 0, 0.4); border-color: #ffff00;"></div>
+            <span>Vigilancia Leve</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(0, 255, 0, 0.3);"></div>
+            <span>Precipitaci&oacute;n/Radar</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgba(255, 255, 255, 0.6);"></div>
+            <span>Nubes (Sat&eacute;lite)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
+    
+    <!-- Custom App -->
+    <script src="venezuela_municipalities.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
